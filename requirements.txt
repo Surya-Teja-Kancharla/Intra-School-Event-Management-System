@@ -1,0 +1,7 @@
+babel==2.17.0
+colorama==0.4.6
+loguru==0.7.3
+psycopg2-binary==2.9.10
+python-dotenv==1.0.1
+tkcalendar==1.6.1
+win32_setctime==1.2.0
