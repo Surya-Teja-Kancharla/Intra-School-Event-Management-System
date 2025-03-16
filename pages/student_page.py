@@ -1,13 +1,14 @@
 import tkinter as tk
 from tkinter import messagebox, filedialog
 from datetime import datetime
-from tkinter import ttk
 import sys
 import os
 from database.db_connection import get_connection
 from database.queries import generate_unique_file_id
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# Define project root (one level above the pages folder)
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.append(PROJECT_ROOT)
 
 class StudentDashboard:
     def __init__(self, root, user_id):
@@ -213,6 +214,7 @@ class StudentDashboard:
     def submit_files(self, event_str, file_entries):
         """
         Submit the files to the database and save them locally in the uploads directory.
+        Updates the file record with FileStatus set to "Pending".
         """
         if not event_str:
             messagebox.showerror("Error", "Please select an event.")
@@ -230,18 +232,23 @@ class StudentDashboard:
             file_name = entry.get().strip()
             if file_name:
                 try:
-                    file_path = os.path.join("uploads", file_name)
+                    # Build the full file path in the uploads folder at the project root
+                    uploads_dir = os.path.join(PROJECT_ROOT, "uploads")
+                    if not os.path.exists(uploads_dir):
+                        os.makedirs(uploads_dir)
+                    file_path = os.path.join(uploads_dir, file_name)
                     with open(file_path, "rb") as file_obj:
                         file_content = file_obj.read()
 
                     # Generate a unique FileID using the helper function
                     file_id = generate_unique_file_id()
 
+                    # Insert the file record including the FileApprovalStatus column
                     query = """
-                        INSERT INTO Event_Files (FileID, EventID, UserID, FileName, FileContent)
-                        VALUES (%s, %s, %s, %s, %s)
+                        INSERT INTO Event_Files (FileID, EventID, UserID, FileName, FileContent, FileApprovalStatus)
+                        VALUES (%s, %s, %s, %s, %s, %s)
                     """
-                    self.cursor.execute(query, (file_id, event_id, self.user_id, file_name, file_content))
+                    self.cursor.execute(query, (file_id, event_id, self.user_id, file_name, file_content, "Pending"))
                     self.conn.commit()
 
                     messagebox.showinfo("Success", f"File '{file_name}' uploaded successfully.")
@@ -262,13 +269,13 @@ class StudentDashboard:
             if not file_path.lower().endswith(".pdf"):
                 messagebox.showerror("Error", "Only PDF files are allowed.")
             else:
-                if not os.path.exists("uploads"):
-                    os.makedirs("uploads")
-                dest_path = os.path.join("uploads", os.path.basename(file_path))
+                uploads_dir = os.path.join(PROJECT_ROOT, "uploads")
+                if not os.path.exists(uploads_dir):
+                    os.makedirs(uploads_dir)
+                dest_path = os.path.join(uploads_dir, os.path.basename(file_path))
                 with open(file_path, "rb") as src_file:
                     with open(dest_path, "wb") as dest_file:
                         dest_file.write(src_file.read())
-
                 file_name = os.path.basename(file_path)
                 entry_widget.delete(0, tk.END)
                 entry_widget.insert(0, file_name)
