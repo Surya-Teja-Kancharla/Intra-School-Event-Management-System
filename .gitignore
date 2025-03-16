@@ -3,3 +3,9 @@ venv/
 
 # Environment variables file
 .env
+
+# Downloads directory
+downloads/
+
+# Uploads directory
+uploads /
