@@ -1,9 +1,11 @@
 import tkinter as tk
 from tkinter import messagebox, filedialog
 from datetime import datetime
+from tkinter import ttk
 import sys
 import os
 from database.db_connection import get_connection
+from database.queries import generate_unique_file_id
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -41,41 +43,18 @@ class StudentDashboard:
 
         btn_style = {"font": ("Arial", 12), "width": 25, "bd": 2, "relief": "raised"}
 
-        # 1. View Events
-        tk.Button(
-            btn_frame,
-            text="View Events",
-            bg="#007BFF",
-            fg="white",
-            **btn_style,
-            command=self.view_events
-        ).grid(row=0, column=0, pady=10)
-
-        # 2. Upload Files
-        tk.Button(
-            btn_frame,
-            text="Upload Files",
-            bg="#007BFF",
-            fg="white",
-            **btn_style,
-            command=self.upload_files
-        ).grid(row=1, column=0, pady=10)
-
-        # 3. Logout
-        tk.Button(
-            btn_frame,
-            text="Logout",
-            bg="#DC3545",
-            fg="white",
-            **btn_style,
-            command=self.logout
-        ).grid(row=2, column=0, pady=10)
+        tk.Button(btn_frame, text="View Events", bg="#007BFF", fg="white", **btn_style, command=self.view_events).grid(row=0, column=0, pady=10)
+        tk.Button(btn_frame, text="Upload Files", bg="#007BFF", fg="white", **btn_style, command=self.upload_files).grid(row=1, column=0, pady=10)
+        tk.Button(btn_frame, text="Logout", bg="#DC3545", fg="white", **btn_style, command=self.logout).grid(row=2, column=0, pady=10)
 
     def fetch_student_events(self):
-        """Fetch events associated with the logged-in student."""
+        """
+        Fetch events associated with the logged-in student.
+        Now returns (EventID, EventName, EventDate).
+        """
         try:
             query = """
-                SELECT e.EventName, e.EventDate 
+                SELECT e.EventID, e.EventName, e.EventDate 
                 FROM Events e
                 JOIN Event_Participation ep ON e.EventID = ep.EventID
                 WHERE TRIM(LOWER(ep.UserID)) = LOWER(TRIM(%s))
@@ -91,7 +70,7 @@ class StudentDashboard:
         """
         Opens a window with:
         - A calendar that color-codes events (completed/upcoming/current) for the logged-in student.
-        - A text box that displays the event names on the selected day (only those events associated with the student).
+        - A text box that displays the event names on the selected day.
         """
         view_win = tk.Toplevel(self.root)
         view_win.title("View Events")
@@ -114,7 +93,7 @@ class StudentDashboard:
         # Fetch events for this student
         events = self.fetch_student_events()
 
-        for event_name, event_date in events:
+        for event_id, event_name, event_date in events:
             try:
                 if isinstance(event_date, str):
                     ev_date = datetime.strptime(event_date, "%Y-%m-%d").date()
@@ -124,11 +103,11 @@ class StudentDashboard:
                 print(f"Creating calendar event: {event_name} on {ev_date}")  # Debug statement
 
                 if ev_date < today_date:
-                    tag = "completed"  # Red
+                    tag = "completed"
                 elif ev_date > today_date:
-                    tag = "upcoming"   # Green
+                    tag = "upcoming"
                 else:
-                    tag = "current"    # Blue
+                    tag = "current"
 
                 calendar.calevent_create(ev_date, event_name, tag)
             except Exception as ex:
@@ -144,7 +123,7 @@ class StudentDashboard:
         event_details.pack(pady=10)
 
         def on_date_select(event):
-            selected_date = calendar.get_date()  # in yyyy-mm-dd format
+            selected_date = calendar.get_date()  # Format: yyyy-mm-dd
             try:
                 query = """
                     SELECT e.EventName 
@@ -177,18 +156,23 @@ class StudentDashboard:
     # --------------------------------------------------
     def upload_files(self):
         """
-        Opens a window where only PDF files can be uploaded.
-        Three sections, each with "File Name", "Drop files here", and "Browse" button.
-        A "Request Feedback" button at the bottom.
+        Opens a window where students can upload up to 3 files associated with an event.
         """
         upload_win = tk.Toplevel(self.root)
         upload_win.title("Upload Files")
-        upload_win.geometry("400x600")
+        upload_win.geometry("500x600")
         upload_win.configure(bg="white")
 
-        tk.Label(upload_win, text="Upload Files", font=("Arial", 16, "bold"), bg="white").pack(pady=10)
+        # Fetch events associated with the student
+        events = self.fetch_student_events()
 
-        # Create 3 upload sections
+        tk.Label(upload_win, text="Select Event:", font=("Arial", 12), bg="white").pack(pady=10, anchor="w")
+        selected_event = tk.StringVar(upload_win)
+        # Format: "EventID - EventName (EventDate)"
+        event_options = [f"{row[0]} - {row[1]} ({row[2]})" for row in events]
+        tk.OptionMenu(upload_win, selected_event, *event_options).pack(pady=5, anchor="w")
+
+        file_entries = []
         for i in range(1, 4):
             section_frame = tk.Frame(upload_win, bg="white", padx=10, pady=10, bd=1, relief="groove")
             section_frame.pack(pady=10, fill="x", expand=True)
@@ -196,6 +180,7 @@ class StudentDashboard:
             tk.Label(section_frame, text=f"File Name {i}:", font=("Arial", 12), bg="white").pack(anchor="w")
             file_name_entry = tk.Entry(section_frame, font=("Arial", 12), width=30)
             file_name_entry.pack(pady=5)
+            file_entries.append(file_name_entry)
 
             # "Drop files here" placeholder
             drop_frame = tk.Frame(section_frame, bg="#f0f0f0", width=300, height=60)
@@ -222,11 +207,52 @@ class StudentDashboard:
             bg="#007BFF",
             fg="white",
             width=15,
-            command=lambda: messagebox.showinfo("Request Feedback", "Feedback requested (dummy)")
+            command=lambda: self.submit_files(selected_event.get(), file_entries)
         ).pack(pady=20)
 
+    def submit_files(self, event_str, file_entries):
+        """
+        Submit the files to the database and save them locally in the uploads directory.
+        """
+        if not event_str:
+            messagebox.showerror("Error", "Please select an event.")
+            return
+
+        # Extract EventID from the selected event string
+        try:
+            # Assuming the format "EventID - EventName (EventDate)"
+            event_id = event_str.split(" - ")[0]
+        except Exception as ex:
+            messagebox.showerror("Error", f"Error parsing event details: {ex}")
+            return
+
+        for i, entry in enumerate(file_entries):
+            file_name = entry.get().strip()
+            if file_name:
+                try:
+                    file_path = os.path.join("uploads", file_name)
+                    with open(file_path, "rb") as file_obj:
+                        file_content = file_obj.read()
+
+                    # Generate a unique FileID using the helper function
+                    file_id = generate_unique_file_id()
+
+                    query = """
+                        INSERT INTO Event_Files (FileID, EventID, UserID, FileName, FileContent)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """
+                    self.cursor.execute(query, (file_id, event_id, self.user_id, file_name, file_content))
+                    self.conn.commit()
+
+                    messagebox.showinfo("Success", f"File '{file_name}' uploaded successfully.")
+                except Exception as e:
+                    self.conn.rollback()
+                    messagebox.showerror("Error", f"Failed to upload '{file_name}': {e}")
+
     def pick_pdf_file(self, entry_widget):
-        """Opens a file dialog restricted to PDF files, updates the entry if valid."""
+        """
+        Opens a file dialog restricted to PDF files, updates the entry if valid.
+        """
         file_path = filedialog.askopenfilename(
             title="Select a PDF File",
             filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
@@ -234,9 +260,15 @@ class StudentDashboard:
         if file_path:
             # Check if file ends with .pdf
             if not file_path.lower().endswith(".pdf"):
-                messagebox.showerror("Error", "File Type Not accepted")
+                messagebox.showerror("Error", "Only PDF files are allowed.")
             else:
-                # Update the entry with the selected file's name
+                if not os.path.exists("uploads"):
+                    os.makedirs("uploads")
+                dest_path = os.path.join("uploads", os.path.basename(file_path))
+                with open(file_path, "rb") as src_file:
+                    with open(dest_path, "wb") as dest_file:
+                        dest_file.write(src_file.read())
+
                 file_name = os.path.basename(file_path)
                 entry_widget.delete(0, tk.END)
                 entry_widget.insert(0, file_name)
@@ -245,7 +277,9 @@ class StudentDashboard:
     # LOGOUT
     # --------------------------------------------------
     def logout(self):
-        """Logs the user out and returns to the login page."""
+        """
+        Logs the user out and returns to the login page.
+        """
         self.root.destroy()
         from pages.login_page import LoginPage
         root = tk.Tk()
@@ -254,5 +288,6 @@ class StudentDashboard:
 
 if __name__ == "__main__":
     root = tk.Tk()
+    # Provide a valid student user ID
     StudentDashboard(root)
     root.mainloop()
