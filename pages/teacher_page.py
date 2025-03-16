@@ -1,19 +1,25 @@
-from datetime import timedelta
+import os
+import sys
 import tkinter as tk
 from tkinter import messagebox, ttk
-import sys
-import os
+from datetime import timedelta
 from database.db_connection import get_connection
+from database.queries import generate_unique_feedback
 
-# Add parent directory to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Make sure tkcalendar is installed if you're using it for "Create Events"
+# Append the parent directory (project root) to the Python path
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.append(PROJECT_ROOT)
+
 try:
     from tkcalendar import DateEntry
     CALENDAR_AVAILABLE = True
 except ImportError:
     CALENDAR_AVAILABLE = False
+
+# Helper function to underline text
+def underline_text(text):
+    return "".join([char + "\u0332" for char in text])
 
 class TeacherDashboard:
     def __init__(self, root, user_id):
@@ -35,13 +41,6 @@ class TeacherDashboard:
         self.create_widgets()
 
     def create_widgets(self):
-        """
-        Main Teacher Dashboard with exactly four buttons:
-        1. Create Events
-        2. Add Students
-        3. Provide Feedback
-        4. Logout
-        """
         header = tk.Label(self.root, text="Teacher Dashboard", font=("Arial", 18, "bold"), bg="#f0f0f0")
         header.pack(pady=20)
 
@@ -50,45 +49,11 @@ class TeacherDashboard:
 
         btn_style = {"font": ("Arial", 12), "width": 25, "bd": 2, "relief": "raised"}
 
-        # Button 1: Create Events
-        tk.Button(
-            btn_frame,
-            text="Create Events",
-            bg="#007BFF",
-            fg="white",
-            **btn_style,
-            command=self.create_events
-        ).grid(row=0, column=0, pady=10)
+        tk.Button(btn_frame, text="Create Events", bg="#007BFF", fg="white", **btn_style, command=self.create_events).grid(row=0, column=0, pady=10)
+        tk.Button(btn_frame, text="Add Students", bg="#007BFF", fg="white", **btn_style, command=self.add_students).grid(row=1, column=0, pady=10)
+        tk.Button(btn_frame, text="Provide Feedback", bg="#007BFF", fg="white", **btn_style, command=self.provide_feedback).grid(row=2, column=0, pady=10)
+        tk.Button(btn_frame, text="Logout", bg="#DC3545", fg="white", **btn_style, command=self.logout).grid(row=3, column=0, pady=10)
 
-        # Button 2: Add Students
-        tk.Button(
-            btn_frame,
-            text="Add Students",
-            bg="#007BFF",
-            fg="white",
-            **btn_style,
-            command=self.add_students
-        ).grid(row=1, column=0, pady=10)
-
-        # Button 3: Provide Feedback
-        tk.Button(
-            btn_frame,
-            text="Provide Feedback",
-            bg="#007BFF",
-            fg="white",
-            **btn_style,
-            command=self.provide_feedback
-        ).grid(row=2, column=0, pady=10)
-
-        # Button 4: Logout
-        tk.Button(
-            btn_frame,
-            text="Logout",
-            bg="#DC3545",
-            fg="white",
-            **btn_style,
-            command=self.logout
-        ).grid(row=3, column=0, pady=10)
 
     # ----------------------------------------------------
     # 1. Create Events
@@ -259,7 +224,6 @@ class TeacherDashboard:
                     )
                 """
 
-
                 # Calculate date range (3 days before and 3 days after the event date)
                 date_start = (event_date - timedelta(days=3)).strftime('%Y-%m-%d')
                 date_end = (event_date + timedelta(days=3)).strftime('%Y-%m-%d')
@@ -344,7 +308,7 @@ class TeacherDashboard:
 
             student_var.set("Select Student")
 
-        event_var.trace("w", on_event_select)
+        event_var.trace_add("w", on_event_select)
 
         # Student Dropdown
         tk.Label(frame, text="Select Student:", font=("Arial", 12), bg="white").grid(row=1, column=0, sticky="e", padx=5, pady=5)
@@ -370,58 +334,73 @@ class TeacherDashboard:
         ).pack(pady=10)
 
 
-
     # ----------------------------------------------------
     # 3. Provide Feedback
     # ----------------------------------------------------
+    # Helper function to underline text using Unicode combining underline
+    def underline_text(text):
+        return "".join([char + "\u0332" for char in text])
+
     def provide_feedback(self):
         """
         Opens a window for the teacher to:
-        (a) Select a student ID to view that student’s files.
-        (b) Display file format and size.
-        (c) Large text box to add feedback.
-        (d) Approve or Decline buttons (no separate Submit).
+        (a) Select a student assignment in the format StudentID - Student Name - EventID - Event Name.
+        (b) Load and display that student’s file details (FileID, FileName, Format, Size in KB, Download)
+            from the database.
+        (c) Enter feedback in a large text box.
+        (d) Approve or Decline the submission, updating the file status in the database accordingly.
         """
         feedback_win = tk.Toplevel(self.root)
         feedback_win.title("Provide Feedback")
         feedback_win.geometry("600x500")
         feedback_win.configure(bg="white")
 
-        # -- Top Section: Select Student Uploads --
-        top_label = tk.Label(feedback_win, text="Select Student Uploads", font=("Arial", 14, "bold"), bg="white")
+        # -- Top Section: Fetch assignments dynamically for this teacher --
+        top_label = tk.Label(feedback_win, text="Select Assignment", font=("Arial", 14, "bold"), bg="white")
         top_label.pack(pady=10)
 
         top_frame = tk.Frame(feedback_win, bg="white", padx=20, pady=10)
         top_frame.pack()
 
-        # Student ID
-        tk.Label(top_frame, text="Student ID:", font=("Arial", 12), bg="white").grid(row=0, column=0, sticky="e", padx=5, pady=5)
-        self.student_var = tk.StringVar(value="Select Student")
-        student_ids = ["S001", "S002", "S003"]  # Dummy data
-        student_id_menu = ttk.Combobox(top_frame, textvariable=self.student_var, values=student_ids, state="readonly", width=18)
-        student_id_menu.grid(row=0, column=1, padx=5, pady=5)
+        tk.Label(top_frame, text="Assignment:", font=("Arial", 12), bg="white").grid(row=0, column=0, sticky="e", padx=5, pady=5)
+        self.assignment_var = tk.StringVar(value="Select Assignment")
+        try:
+            query = """
+                SELECT ep.UserID, u.UserName, ep.EventID, e.EventName 
+                FROM Event_Participation ep
+                JOIN Users u ON ep.UserID = u.UserID
+                JOIN Events e ON ep.EventID = e.EventID
+                WHERE e.UserID = %s
+                ORDER BY e.EventDate
+            """
+            self.cursor.execute(query, (self.user_id,))
+            assignments_data = self.cursor.fetchall()
+            assignments = [f"{row[0]} - {row[1]} - {row[2]} - {row[3]}" for row in assignments_data]
+        except Exception as e:
+            messagebox.showerror("Error", f"Error fetching assignments: {e}")
+            assignments = []
+        assignment_menu = ttk.Combobox(top_frame, textvariable=self.assignment_var, values=assignments, state="readonly", width=40)
+        assignment_menu.grid(row=0, column=1, padx=5, pady=5)
 
-        # Load Files Button
-        tk.Button(
-            top_frame,
-            text="Load Files",
-            font=("Arial", 12, "bold"),
-            bg="#007BFF",
-            fg="white",
-            command=self.load_files
-        ).grid(row=0, column=2, padx=10, pady=5)
+        tk.Button(top_frame, text="Load Files", font=("Arial", 12, "bold"), bg="#007BFF", fg="white", command=self.load_files).grid(row=0, column=2, padx=10, pady=5)
 
-        # Treeview to display File Name, Format, and Size
-        self.files_tree = ttk.Treeview(feedback_win, columns=("FileName", "Format", "Size"), show="headings", height=5)
+        # -- Middle Section: Display File Details --
+        # Adding a new "Download" column with underlined text
+        self.files_tree = ttk.Treeview(feedback_win, columns=("FileID", "FileName", "Format", "Size", "Download"), show="headings", height=5)
+        self.files_tree.heading("FileID", text="File ID")
         self.files_tree.heading("FileName", text="File Name")
         self.files_tree.heading("Format", text="Format")
         self.files_tree.heading("Size", text="Size (KB)")
-
-        self.files_tree.column("FileName", width=200)
-        self.files_tree.column("Format", width=80)
-        self.files_tree.column("Size", width=80)
-
+        self.files_tree.heading("Download", text="Download")
+        self.files_tree.column("FileID", width=80)
+        self.files_tree.column("FileName", width=150)
+        self.files_tree.column("Format", width=60)
+        self.files_tree.column("Size", width=60)
+        self.files_tree.column("Download", width=80)
         self.files_tree.pack(padx=20, pady=10)
+
+        # Bind click event to detect clicks on the Download column.
+        self.files_tree.bind("<Button-1>", self.on_tree_click)
 
         # -- Bottom Section: Enter Feedback --
         bottom_label = tk.Label(feedback_win, text="Enter Feedback", font=("Arial", 14, "bold"), bg="white")
@@ -429,55 +408,135 @@ class TeacherDashboard:
 
         feedback_frame = tk.Frame(feedback_win, bg="white", padx=20, pady=10)
         feedback_frame.pack()
-
         self.feedback_text = tk.Text(feedback_frame, font=("Arial", 12), width=60, height=6, bd=2, relief="sunken")
         self.feedback_text.pack(pady=5)
 
         # Approve / Decline Buttons
         btn_frame = tk.Frame(feedback_win, bg="white")
         btn_frame.pack(pady=10)
+        tk.Button(btn_frame, text="Approve", font=("Arial", 12, "bold"), bg="#28A745", fg="white", width=10, command=lambda: self.update_file_status("Approved")).grid(row=0, column=0, padx=10)
+        tk.Button(btn_frame, text="Decline", font=("Arial", 12, "bold"), bg="#DC3545", fg="white", width=10, command=lambda: self.update_file_status("Declined")).grid(row=0, column=1, padx=10)
 
-        tk.Button(
-            btn_frame,
-            text="Approve",
-            font=("Arial", 12, "bold"),
-            bg="#28A745",
-            fg="white",
-            width=10,
-            command=lambda: messagebox.showinfo("Feedback", "Submission approved (dummy)")
-        ).grid(row=0, column=0, padx=10)
 
-        tk.Button(
-            btn_frame,
-            text="Decline",
-            font=("Arial", 12, "bold"),
-            bg="#DC3545",
-            fg="white",
-            width=10,
-            command=lambda: messagebox.showinfo("Feedback", "Submission declined (dummy)")
-        ).grid(row=0, column=1, padx=10)
+    def on_tree_click(self, event):
+        """
+        Handler for clicks on the Treeview. If the click is on the 'Download' column,
+        download and open the file.
+        """
+        region = self.files_tree.identify("region", event.x, event.y)
+        if region == "cell":
+            column = self.files_tree.identify_column(event.x)
+            # Check if click is on the 5th column ("#5") which is Download
+            if column == "#5":
+                item = self.files_tree.identify_row(event.y)
+                if item:
+                    file_id = self.files_tree.item(item)['values'][0]
+                    self.download_file(file_id)
+
 
     def load_files(self):
         """
-        Dummy function to load a student's files and display them in the Treeview.
-        Real implementation would fetch data from DB or filesystem.
+        Loads the file records from the database for the selected assignment.
+        Displays the FileID, FileName, fixed 'PDF' format, file size (in KB),
+        and an underlined 'Download' option in the Treeview.
         """
-        # Clear the treeview first
+        # Clear existing rows
         for item in self.files_tree.get_children():
             self.files_tree.delete(item)
 
-        # Example dummy data
-        # (FileName, Format, Size)
-        dummy_data = [
-            ("ProjectReport.docx", "DOCX", "240"),
-            ("Presentation.pdf", "PDF", "1200"),
-            ("Diagram.png", "PNG", "560"),
-        ]
+        assignment = self.assignment_var.get()
+        if assignment == "Select Assignment":
+            messagebox.showerror("Error", "Please select an assignment.")
+            return
 
-        for file_info in dummy_data:
-            self.files_tree.insert("", tk.END, values=file_info)
+        try:
+            parts = assignment.split("-")
+            student_id = parts[0].strip()
+            event_id = parts[2].strip()
+        except Exception as e:
+            messagebox.showerror("Error", f"Error parsing assignment: {e}")
+            return
 
-        messagebox.showinfo("Load Files", f"Files for student {self.student_var.get()} loaded (dummy).")
+        try:
+            query = """
+                SELECT FileID, FileName, 'PDF' AS Format, COALESCE(ROUND(LENGTH(FileContent)/1024.0), 0) AS Size
+                FROM Event_Files
+                WHERE EventID = %s AND UserID = %s
+            """
+            self.cursor.execute(query, (event_id, student_id))
+            results = self.cursor.fetchall()
+            if results:
+                download_text = underline_text("Download")
+                for row in results:
+                    self.files_tree.insert("", tk.END, values=(row[0], row[1], row[2], str(row[3]), download_text))
+            else:
+                messagebox.showinfo("Load Files", "No files found for the selected assignment.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error loading files: {e}")
+
+
+    def download_file(self, file_id):
+        """
+        Downloads the file with the given FileID from the database,
+        saves it locally in the 'downloads' folder (at the project root), and opens it.
+        """
+        try:
+            query = "SELECT FileName, FileContent FROM Event_Files WHERE FileID = %s"
+            self.cursor.execute(query, (file_id,))
+            result = self.cursor.fetchone()
+            if result:
+                file_name, file_content = result
+                download_dir = os.path.join(PROJECT_ROOT, "downloads")
+                if not os.path.exists(download_dir):
+                    os.makedirs(download_dir)
+                file_path = os.path.join(download_dir, file_name)
+                with open(file_path, "wb") as f:
+                    f.write(file_content)
+                try:
+                    os.startfile(file_path)
+                except AttributeError:
+                    import subprocess
+                    subprocess.call(["open", file_path])
+            else:
+                messagebox.showerror("Error", "File not found in database.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error downloading file: {e}")
+
+
+    def update_file_status(self, status):
+        """
+        Updates the FileApprovalStatus of the selected file in the Event_Files table to 'Approved' or 'Declined'.
+        Also, updates the feedback (if any) from the text box using the generate_unique_feedback function.
+        """
+        selected_item = self.files_tree.selection()
+        if not selected_item:
+            messagebox.showerror("Error", "Please select a file from the list.")
+            return
+        file_id = self.files_tree.item(selected_item)['values'][0]
+        feedback_text = self.feedback_text.get("1.0", tk.END).strip()
+
+        try:
+            # Update file status first.
+            query = "UPDATE Event_Files SET FileApprovalStatus = %s WHERE FileID = %s"
+            self.cursor.execute(query, (status, file_id))
+            
+            # If feedback is provided, insert it into the Feedback table.
+            if feedback_text:
+                # Import the helper from queries.py
+                from database.queries import generate_unique_feedback
+                feedback_id = generate_unique_feedback()
+                feedback_query = """
+                    INSERT INTO Feedback (FeedbackID, FileID, UserID, Feedback)
+                    VALUES (%s, %s, %s, %s)
+                """
+                self.cursor.execute(feedback_query, (feedback_id, file_id, self.user_id, feedback_text))
+            
+            self.conn.commit()
+            messagebox.showinfo("Success", f"File status updated to {status}.")
+        except Exception as e:
+            self.conn.rollback()
+            messagebox.showerror("Error", f"Failed to update file status: {e}")
+
 
     # ----------------------------------------------------
     # 4. Logout
