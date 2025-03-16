@@ -37,6 +37,7 @@ CREATE TABLE Event_Files (
     EventID VARCHAR(10) REFERENCES Events(EventID),
     UserID CHAR(10) REFERENCES Users(UserID),
     FileName VARCHAR(45) NOT NULL,
+    FileContent BYTEA,
     UploadDate DATE DEFAULT CURRENT_DATE
 );
 
