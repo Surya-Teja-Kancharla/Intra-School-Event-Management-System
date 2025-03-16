@@ -13,8 +13,8 @@ class LoginPage:
     def __init__(self, root):
         self.root = root
         self.root.title("Intra-School Event Management - Login")
+        self.root.state("zoomed")  # Set the window to full screen
         self.root.configure(bg="#f0f0f0")  # Light gray background
-        self.root.geometry("450x350")
 
         # Placeholder strings
         self.username_placeholder = "Enter Username"
@@ -27,7 +27,6 @@ class LoginPage:
         Creates the UI elements for the login page, including placeholder text for
         username and password fields.
         """
-
         # Frame for the login area (white background, with a groove border)
         login_frame = tk.Frame(self.root, bg="white", padx=20, pady=20, bd=2, relief="groove")
         login_frame.place(relx=0.5, rely=0.5, anchor="center")
@@ -144,7 +143,7 @@ class LoginPage:
             if result:
                 user_id, user_role = result
                 messagebox.showinfo("Success", f"Welcome, {role}!")
-                self.navigate_to_dashboard(role, user_id)
+                self.navigate_to_dashboard(user_role, user_id)
             else:
                 messagebox.showerror("Error", "Invalid credentials or role")
             
@@ -162,21 +161,25 @@ class LoginPage:
         if role == "Admin":
             from pages.admin_page import AdminDashboard
             root = tk.Tk()
+            root.state("zoomed")
             AdminDashboard(root, user_id)
             root.mainloop()
         elif role == "Teacher":
             from pages.teacher_page import TeacherDashboard
             root = tk.Tk()
-            TeacherDashboard(root, user_id)  # Pass `user_id` to TeacherDashboard
+            root.state("zoomed")
+            TeacherDashboard(root, user_id)
             root.mainloop()
         elif role == "Student":
             from pages.student_page import StudentDashboard
             root = tk.Tk()
-            StudentDashboard(root, user_id)  # Pass `user_id` to StudentDashboard
+            root.state("zoomed")
+            StudentDashboard(root, user_id)
             root.mainloop()
 
 
 if __name__ == "__main__":
     root = tk.Tk()
+    root.state("zoomed")  # Open the login page in full screen
     LoginPage(root)
     root.mainloop()

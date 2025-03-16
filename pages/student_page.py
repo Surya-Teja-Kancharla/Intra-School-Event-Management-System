@@ -49,6 +49,17 @@ class StudentDashboard:
         tk.Button(btn_frame, text="View Feedback", bg="#007BFF", fg="white", **btn_style, command=self.view_feedback).grid(row=2, column=0, pady=10)
         tk.Button(btn_frame, text="Logout", bg="#DC3545", fg="white", **btn_style, command=self.logout).grid(row=3, column=0, pady=10)
 
+    def open_fullscreen_window(self, title):
+        """
+        Helper function to open a fullscreen Toplevel window with a title.
+        """
+        new_win = tk.Toplevel(self.root)
+        new_win.title(title)
+        new_win.geometry(f"{new_win.winfo_screenwidth()}x{new_win.winfo_screenheight()}")
+        new_win.state("zoomed")
+        new_win.configure(bg="white")
+        return new_win
+
     def fetch_student_events(self):
         """
         Fetches events associated with the logged-in student.
@@ -72,11 +83,7 @@ class StudentDashboard:
         Opens a window to display a calendar and event details.
         (Existing implementation remains unchanged.)
         """
-        view_win = tk.Toplevel(self.root)
-        view_win.title("View Events")
-        view_win.geometry("700x500")
-        view_win.configure(bg="white")
-
+        view_win = self.open_fullscreen_window("View Events")
         tk.Label(view_win, text="View Events", font=("Arial", 16, "bold"), bg="white").pack(pady=10)
 
         # Calendar Section
@@ -143,10 +150,8 @@ class StudentDashboard:
         Opens a window where students can upload up to 3 files associated with an event.
         (Existing implementation remains unchanged.)
         """
-        upload_win = tk.Toplevel(self.root)
-        upload_win.title("Upload Files")
-        upload_win.geometry("500x600")
-        upload_win.configure(bg="white")
+        upload_win = self.open_fullscreen_window("Upload Files")
+        tk.Label(upload_win, text="Upload Files", font=("Arial", 16, "bold"), bg="white").pack(pady=10)
 
         events = self.fetch_student_events()
         tk.Label(upload_win, text="Select Event:", font=("Arial", 12), bg="white").pack(pady=10, anchor="w")
@@ -259,10 +264,8 @@ class StudentDashboard:
         "EventID-EventName-TeacherName", where TeacherName is the username of the teacher who created the event.
         Below the dropdown, a text area displays the feedback given by the teacher along with the file status (Approved/Declined/Pending).
         """
-        feedback_win = tk.Toplevel(self.root)
-        feedback_win.title("View Feedback")
-        feedback_win.geometry("600x500")
-        feedback_win.configure(bg="white")
+        feedback_win = self.open_fullscreen_window("View Feedback")
+        tk.Label(feedback_win, text="View Feedback", font=("Arial", 16, "bold"), bg="white").pack(pady=10)
 
         # Top Section: Label and dropdown for events
         top_frame = tk.Frame(feedback_win, bg="white", padx=20, pady=10)
@@ -341,11 +344,13 @@ class StudentDashboard:
         self.root.destroy()
         from pages.login_page import LoginPage
         root = tk.Tk()
+        root.state("zoomed")  # Ensure the login page opens in full screen
         LoginPage(root)
         root.mainloop()
 
 
 if __name__ == "__main__":
     root = tk.Tk()
-    StudentDashboard(root)
+    root.state("zoomed")  # Ensure the main window opens in full screen
+    StudentDashboard(root, user_id="test_user")  # Replace "test_user" with an actual user ID
     root.mainloop()

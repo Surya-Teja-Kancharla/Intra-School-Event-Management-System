@@ -17,6 +17,7 @@ try:
 except ImportError:
     CALENDAR_AVAILABLE = False
 
+
 # Helper function to underline text
 def underline_text(text):
     return "".join([char + "\u0332" for char in text])
@@ -97,7 +98,7 @@ class TeacherDashboard:
                     event_id = "EID001"  # Default ID
 
                 # Assuming 'UserID' of the logged-in teacher is available as 'self.user_id'
-                user_id = self.user_id  # Replace this with the actual logged-in user's ID
+                user_id = self.user_id
 
                 # Save to database
                 query = """
@@ -116,11 +117,11 @@ class TeacherDashboard:
             except Exception as e:
                 messagebox.showerror("Database Error", f"An error occurred: {e}")
 
-
         # Create Event Window
         create_win = tk.Toplevel(self.root)
         create_win.title("Create Event")
-        create_win.geometry("500x400")
+        create_win.geometry(f"{create_win.winfo_screenwidth()}x{create_win.winfo_screenheight()}")
+        create_win.state("zoomed")  # Set the window to full screen
         create_win.configure(bg="white")
 
         tk.Label(create_win, text="Create Event", font=("Arial", 16, "bold"), bg="white").pack(pady=10)
@@ -181,6 +182,14 @@ class TeacherDashboard:
         Opens a window to add students to an event or assign roles.
         Dynamically fetches events and students based on the teacher's user_id.
         """
+        add_win = tk.Toplevel(self.root)
+        add_win.title("Add Students")
+        add_win.geometry(f"{add_win.winfo_screenwidth()}x{add_win.winfo_screenheight()}")
+        add_win.state("zoomed")  # Set the window to full screen
+        add_win.configure(bg="white")
+
+        tk.Label(add_win, text="Add Students", font=("Arial", 16, "bold"), bg="white").pack(pady=10)
+
         def fetch_teacher_events():
             """
             Fetches events associated with the logged-in teacher.
@@ -272,13 +281,6 @@ class TeacherDashboard:
             except Exception as e:
                 messagebox.showerror("Database Error", f"Error assigning student to event: {e}")
 
-        add_win = tk.Toplevel(self.root)
-        add_win.title("Add Students")
-        add_win.geometry("600x500")
-        add_win.configure(bg="white")
-
-        tk.Label(add_win, text="Add Students", font=("Arial", 16, "bold"), bg="white").pack(pady=10)
-
         frame = tk.Frame(add_win, bg="white", padx=20, pady=20)
         frame.pack(pady=10)
 
@@ -308,7 +310,7 @@ class TeacherDashboard:
 
             student_var.set("Select Student")
 
-        event_var.trace_add("w", on_event_select)
+        event_var.trace_add("write", on_event_select)
 
         # Student Dropdown
         tk.Label(frame, text="Select Student:", font=("Arial", 12), bg="white").grid(row=1, column=0, sticky="e", padx=5, pady=5)
@@ -331,7 +333,7 @@ class TeacherDashboard:
             fg="white",
             width=15,
             command=add_student_to_event
-        ).pack(pady=10)
+        ).pack(pady=20)
 
 
     # ----------------------------------------------------
@@ -352,7 +354,8 @@ class TeacherDashboard:
         """
         feedback_win = tk.Toplevel(self.root)
         feedback_win.title("Provide Feedback")
-        feedback_win.geometry("600x500")
+        feedback_win.geometry(f"{feedback_win.winfo_screenwidth()}x{feedback_win.winfo_screenheight()}")
+        feedback_win.state("zoomed")  # Set the window to full screen
         feedback_win.configure(bg="white")
 
         # -- Top Section: Fetch assignments dynamically for this teacher --
@@ -379,24 +382,23 @@ class TeacherDashboard:
         except Exception as e:
             messagebox.showerror("Error", f"Error fetching assignments: {e}")
             assignments = []
-        assignment_menu = ttk.Combobox(top_frame, textvariable=self.assignment_var, values=assignments, state="readonly", width=40)
+        assignment_menu = ttk.Combobox(top_frame, textvariable=self.assignment_var, values=assignments, state="readonly", width=50)
         assignment_menu.grid(row=0, column=1, padx=5, pady=5)
 
         tk.Button(top_frame, text="Load Files", font=("Arial", 12, "bold"), bg="#007BFF", fg="white", command=self.load_files).grid(row=0, column=2, padx=10, pady=5)
 
         # -- Middle Section: Display File Details --
-        # Adding a new "Download" column with underlined text
-        self.files_tree = ttk.Treeview(feedback_win, columns=("FileID", "FileName", "Format", "Size", "Download"), show="headings", height=5)
+        self.files_tree = ttk.Treeview(feedback_win, columns=("FileID", "FileName", "Format", "Size", "Download"), show="headings", height=10)
         self.files_tree.heading("FileID", text="File ID")
         self.files_tree.heading("FileName", text="File Name")
         self.files_tree.heading("Format", text="Format")
         self.files_tree.heading("Size", text="Size (KB)")
         self.files_tree.heading("Download", text="Download")
         self.files_tree.column("FileID", width=80)
-        self.files_tree.column("FileName", width=150)
-        self.files_tree.column("Format", width=60)
-        self.files_tree.column("Size", width=60)
-        self.files_tree.column("Download", width=80)
+        self.files_tree.column("FileName", width=250)
+        self.files_tree.column("Format", width=80)
+        self.files_tree.column("Size", width=80)
+        self.files_tree.column("Download", width=100)
         self.files_tree.pack(padx=20, pady=10)
 
         # Bind click event to detect clicks on the Download column.
@@ -408,15 +410,14 @@ class TeacherDashboard:
 
         feedback_frame = tk.Frame(feedback_win, bg="white", padx=20, pady=10)
         feedback_frame.pack()
-        self.feedback_text = tk.Text(feedback_frame, font=("Arial", 12), width=60, height=6, bd=2, relief="sunken")
+        self.feedback_text = tk.Text(feedback_frame, font=("Arial", 12), width=100, height=10, bd=2, relief="sunken")
         self.feedback_text.pack(pady=5)
 
         # Approve / Decline Buttons
         btn_frame = tk.Frame(feedback_win, bg="white")
         btn_frame.pack(pady=10)
-        tk.Button(btn_frame, text="Approve", font=("Arial", 12, "bold"), bg="#28A745", fg="white", width=10, command=lambda: self.update_file_status("Approved")).grid(row=0, column=0, padx=10)
-        tk.Button(btn_frame, text="Decline", font=("Arial", 12, "bold"), bg="#DC3545", fg="white", width=10, command=lambda: self.update_file_status("Declined")).grid(row=0, column=1, padx=10)
-
+        tk.Button(btn_frame, text="Approve", font=("Arial", 12, "bold"), bg="#28A745", fg="white", width=15, command=lambda: self.update_file_status("Approved")).grid(row=0, column=0, padx=10)
+        tk.Button(btn_frame, text="Decline", font=("Arial", 12, "bold"), bg="#DC3545", fg="white", width=15, command=lambda: self.update_file_status("Declined")).grid(row=0, column=1, padx=10)
 
     def on_tree_click(self, event):
         """
@@ -432,7 +433,6 @@ class TeacherDashboard:
                 if item:
                     file_id = self.files_tree.item(item)['values'][0]
                     self.download_file(file_id)
-
 
     def load_files(self):
         """
@@ -466,14 +466,12 @@ class TeacherDashboard:
             self.cursor.execute(query, (event_id, student_id))
             results = self.cursor.fetchall()
             if results:
-                download_text = underline_text("Download")
                 for row in results:
-                    self.files_tree.insert("", tk.END, values=(row[0], row[1], row[2], str(row[3]), download_text))
+                    self.files_tree.insert("", tk.END, values=(row[0], row[1], row[2], str(row[3]), "Download"))
             else:
                 messagebox.showinfo("Load Files", "No files found for the selected assignment.")
         except Exception as e:
             messagebox.showerror("Error", f"Error loading files: {e}")
-
 
     def download_file(self, file_id):
         """
@@ -492,16 +490,11 @@ class TeacherDashboard:
                 file_path = os.path.join(download_dir, file_name)
                 with open(file_path, "wb") as f:
                     f.write(file_content)
-                try:
-                    os.startfile(file_path)
-                except AttributeError:
-                    import subprocess
-                    subprocess.call(["open", file_path])
+                os.startfile(file_path)
             else:
                 messagebox.showerror("Error", "File not found in database.")
         except Exception as e:
             messagebox.showerror("Error", f"Error downloading file: {e}")
-
 
     def update_file_status(self, status):
         """
@@ -516,13 +509,12 @@ class TeacherDashboard:
         feedback_text = self.feedback_text.get("1.0", tk.END).strip()
 
         try:
-            # Update file status first.
+            # Update file status
             query = "UPDATE Event_Files SET FileApprovalStatus = %s WHERE FileID = %s"
             self.cursor.execute(query, (status, file_id))
-            
-            # If feedback is provided, insert it into the Feedback table.
+
+            # Insert feedback into Feedback table
             if feedback_text:
-                # Import the helper from queries.py
                 from database.queries import generate_unique_feedback
                 feedback_id = generate_unique_feedback()
                 feedback_query = """
@@ -530,7 +522,7 @@ class TeacherDashboard:
                     VALUES (%s, %s, %s, %s)
                 """
                 self.cursor.execute(feedback_query, (feedback_id, file_id, self.user_id, feedback_text))
-            
+
             self.conn.commit()
             messagebox.showinfo("Success", f"File status updated to {status}.")
         except Exception as e:
@@ -545,10 +537,12 @@ class TeacherDashboard:
         self.root.destroy()
         from pages.login_page import LoginPage
         root = tk.Tk()
+        root.state("zoomed")  # Ensure the login page opens in full screen
         LoginPage(root)
         root.mainloop()
 
 if __name__ == "__main__":
     root = tk.Tk()
+    root.state("zoomed")  # Open the teacher page in full screen
     TeacherDashboard(root)
     root.mainloop()

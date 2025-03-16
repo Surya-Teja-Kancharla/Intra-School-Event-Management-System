@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 import tkinter as tk
 from tkinter import messagebox, Text, ttk
 from tkcalendar import Calendar, DateEntry
@@ -15,7 +15,8 @@ class AdminDashboard:
         self.user_id = user_id
         self.root.title("Admin Dashboard - Intra-School Event Management")
         self.root.configure(bg="#f0f0f0")
-        self.root.geometry("700x500")
+        self.root.geometry(f"{root.winfo_screenwidth()}x{root.winfo_screenheight()}")
+        self.root.state("zoomed")
 
         # PostgreSQL connection
         try:
@@ -47,7 +48,8 @@ class AdminDashboard:
         """Opens the Dashboard window with a calendar that highlights event dates based on the database."""
         dash_win = tk.Toplevel(self.root)
         dash_win.title("Dashboard")
-        dash_win.geometry("600x500")
+        dash_win.geometry(f"{dash_win.winfo_screenwidth()}x{dash_win.winfo_screenheight()}")
+        dash_win.state("zoomed")
         dash_win.configure(bg="white")
 
         tk.Label(dash_win, text="Dashboard", font=("Arial", 16, "bold"), bg="white").pack(pady=10)
@@ -55,7 +57,7 @@ class AdminDashboard:
         cal_frame = tk.Frame(dash_win, bg="white")
         cal_frame.pack(pady=10)
 
-        calendar = Calendar(cal_frame, selectmode='day', date_pattern="yyyy-mm-dd", font=("Arial", 12))
+        calendar = Calendar(cal_frame, selectmode='day', date_pattern="yyyy-MM-dd", font=("Arial", 12))
         calendar.pack(padx=20, pady=10)
 
         today = datetime.today().date()
@@ -156,7 +158,8 @@ class AdminDashboard:
 
         add_window = tk.Toplevel(self.root)
         add_window.title("Add Teachers")
-        add_window.geometry("400x300")
+        add_window.geometry(f"{add_window.winfo_screenwidth()}x{add_window.winfo_screenheight()}")
+        add_window.state("zoomed")
         add_window.configure(bg="white")
 
         tk.Label(add_window, text="Add Teacher", font=("Arial", 16, "bold"), bg="white").pack(pady=10)
@@ -177,8 +180,11 @@ class AdminDashboard:
 
         tk.Button(add_window, text="Submit", font=("Arial", 12, "bold"), bg="#007BFF", fg="white", width=15, command=submit_teacher).pack(pady=10)
 
+
     def add_events(self):
-        """Admin functionality to add events."""
+        """
+        Admin functionality to add events.
+        """
         def submit_event():
             event_name = event_name_entry.get().strip()
             event_date = event_date_entry.get().strip()
@@ -247,10 +253,10 @@ class AdminDashboard:
                 messagebox.showerror("Error", f"Error fetching teachers: {e}")
                 return []
 
-
         add_event_win = tk.Toplevel(self.root)
         add_event_win.title("Add Event")
-        add_event_win.geometry("500x500")
+        add_event_win.geometry(f"{add_event_win.winfo_screenwidth()}x{add_event_win.winfo_screenheight()}")
+        add_event_win.state("zoomed")
         add_event_win.configure(bg="white")
 
         tk.Label(add_event_win, text="Add Event", font=("Arial", 16, "bold"), bg="white").pack(pady=10)
@@ -308,7 +314,9 @@ class AdminDashboard:
 
 
     def edit_events(self):
-        """Admin functionality to edit events."""
+        """
+        Admin functionality to edit events.
+        """
         def fetch_events():
             """Fetch all events for the dropdown."""
             try:
@@ -352,7 +360,7 @@ class AdminDashboard:
             selected_event = event_var.get()
             if selected_event == "Select Event":
                 return
-            
+
             event_id = selected_event.split(" - ")[0]
             event_details = fetch_event_details(event_id)
 
@@ -403,7 +411,8 @@ class AdminDashboard:
 
         edit_win = tk.Toplevel(self.root)
         edit_win.title("Edit Events")
-        edit_win.geometry("600x500")
+        edit_win.geometry(f"{edit_win.winfo_screenwidth()}x{edit_win.winfo_screenheight()}")
+        edit_win.state("zoomed")
         edit_win.configure(bg="white")
 
         tk.Label(edit_win, text="Edit Event", font=("Arial", 16, "bold"), bg="white").pack(pady=10)
@@ -446,7 +455,9 @@ class AdminDashboard:
 
 
     def delete_events(self):
-        """Admin functionality to delete events."""
+        """
+        Admin functionality to delete events.
+        """
         def delete_event():
             selected_event = event_var.get()
             if selected_event == "Select Event":
@@ -470,10 +481,10 @@ class AdminDashboard:
                 self.conn.rollback()
                 messagebox.showerror("Database Error", f"Error deleting event: {e}")
 
-        # UI for deleting an event
         delete_window = tk.Toplevel(self.root)
         delete_window.title("Delete Events")
-        delete_window.geometry("400x300")
+        delete_window.geometry(f"{delete_window.winfo_screenwidth()}x{delete_window.winfo_screenheight()}")
+        delete_window.state("zoomed")
         delete_window.configure(bg="white")
 
         tk.Label(delete_window, text="Delete Event", font=("Arial", 16, "bold"), bg="white").pack(pady=10)
@@ -488,7 +499,6 @@ class AdminDashboard:
         event_menu.config(font=("Arial", 12), width=30)
         event_menu.grid(row=0, column=1, pady=5)
 
-        # Populate events dropdown
         try:
             query = "SELECT EventID, EventName FROM Events"
             self.cursor.execute(query)
@@ -505,18 +515,19 @@ class AdminDashboard:
         except Exception as e:
             messagebox.showerror("Database Error", f"Error fetching events: {e}")
 
-        tk.Button(
-            delete_window, text="Delete Event", font=("Arial", 12, "bold"), bg="#DC3545", fg="white", width=15, command=delete_event
-        ).pack(pady=10)
+        tk.Button(delete_window, text="Delete Event", font=("Arial", 12, "bold"), bg="#DC3545", fg="white", width=15, command=delete_event).pack(pady=10)
+
 
     def logout(self):
         self.root.destroy()
         from pages.login_page import LoginPage
         root = tk.Tk()
+        root.state("zoomed")  # Ensure the login page opens in full screen
         LoginPage(root)
         root.mainloop()
 
 if __name__ == "__main__":
     root = tk.Tk()
+    root.state("zoomed")  # Open the admin page in full screen
     AdminDashboard(root)
     root.mainloop()
