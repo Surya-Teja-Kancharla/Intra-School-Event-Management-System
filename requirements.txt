@@ -1,7 +1,14 @@
+altgraph==0.17.4
 babel==2.17.0
 colorama==0.4.6
 loguru==0.7.3
+packaging==24.2
+pefile==2023.2.7
 psycopg2-binary==2.9.10
+pyinstaller==6.12.0
+pyinstaller-hooks-contrib==2025.1
 python-dotenv==1.0.1
+pywin32-ctypes==0.2.3
+setuptools==76.0.0
 tkcalendar==1.6.1
 win32_setctime==1.2.0
