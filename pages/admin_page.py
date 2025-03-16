@@ -318,6 +318,20 @@ class AdminDashboard:
                 messagebox.showerror("Error", f"Error fetching events: {e}")
                 return []
 
+        def fetch_event_details(event_id):
+            """Fetch details of a specific event."""
+            try:
+                query = """
+                    SELECT EventName, EventDate, EventStartTime, EventEndTime, EventVenue
+                    FROM Events
+                    WHERE EventID = %s
+                """
+                self.cursor.execute(query, (event_id,))
+                return self.cursor.fetchone()
+            except Exception as e:
+                messagebox.showerror("Error", f"Error fetching event details: {e}")
+                return None
+
         def fetch_teacher_conflicts(new_date, exclude_event):
             """Fetch teachers unavailable for the given date."""
             try:
@@ -325,7 +339,7 @@ class AdminDashboard:
                     SELECT DISTINCT e.UserID
                     FROM Events e
                     WHERE e.EventID != %s 
-                    AND ABS(EXTRACT(DAY FROM (e.EventDate::date - %s::date))) <= 3
+                    AND %s BETWEEN (e.EventDate - INTERVAL '3 days') AND (e.EventDate + INTERVAL '3 days')
                 """
                 self.cursor.execute(query, (exclude_event, new_date))
                 return [row[0] for row in self.cursor.fetchall()]
@@ -333,16 +347,35 @@ class AdminDashboard:
                 messagebox.showerror("Error", f"Error fetching conflicts: {e}")
                 return []
 
+        def populate_event_data(*args):
+            """Populate event details when an event is selected."""
+            selected_event = event_var.get()
+            if selected_event == "Select Event":
+                return
+            
+            event_id = selected_event.split(" - ")[0]
+            event_details = fetch_event_details(event_id)
+
+            if event_details:
+                event_name, event_date, start_time, end_time, venue = event_details
+                event_name_entry.delete(0, tk.END)
+                event_name_entry.insert(0, event_name)
+                event_date_entry.set_date(event_date)
+                start_time_entry.delete(0, tk.END)
+                start_time_entry.insert(0, start_time)
+                end_time_entry.delete(0, tk.END)
+                end_time_entry.insert(0, end_time)
+                venue_var.set(venue)
 
         def submit_changes():
             selected_event = event_var.get()
             new_name = event_name_entry.get().strip()
-            new_date = event_date_entry.get().strip()
+            new_date = event_date_entry.get_date().strftime("%Y-%m-%d")
             new_start_time = start_time_entry.get().strip()
             new_end_time = end_time_entry.get().strip()
-            new_venue = venue_entry.get().strip()
+            new_venue = venue_var.get()
 
-            if not selected_event or not new_name or not new_date or not new_start_time or not new_end_time or not new_venue:
+            if not selected_event or not new_name or not new_date or not new_start_time or not new_end_time or new_venue == "Select Venue":
                 messagebox.showerror("Error", "All fields are required!")
                 return
 
@@ -380,6 +413,7 @@ class AdminDashboard:
         event_var = tk.StringVar(value="Select Event")
         event_menu = ttk.Combobox(edit_win, textvariable=event_var, values=fetch_events(), state="readonly", font=("Arial", 12))
         event_menu.pack(pady=10)
+        event_menu.bind("<<ComboboxSelected>>", populate_event_data)
 
         frame = tk.Frame(edit_win, bg="white", padx=20, pady=20)
         frame.pack(pady=10)
@@ -402,8 +436,11 @@ class AdminDashboard:
         end_time_entry.grid(row=3, column=1, pady=5)
 
         tk.Label(frame, text="Venue:", font=("Arial", 12), bg="white").grid(row=4, column=0, sticky="e", padx=5, pady=5)
-        venue_entry = tk.Entry(frame, font=("Arial", 12), width=30)
-        venue_entry.grid(row=4, column=1, pady=5)
+        venue_var = tk.StringVar(value="Select Venue")
+        venues = ["Central Auditorium", "Sports Ground", "Classroom"]
+        venue_menu = tk.OptionMenu(frame, venue_var, *venues)
+        venue_menu.config(font=("Arial", 12), width=20)
+        venue_menu.grid(row=4, column=1, pady=5)
 
         tk.Button(edit_win, text="Submit Changes", font=("Arial", 12, "bold"), bg="#007BFF", fg="white", width=20, command=submit_changes).pack(pady=20)
 
