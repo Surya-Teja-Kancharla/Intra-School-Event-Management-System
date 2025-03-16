@@ -1,17 +1,28 @@
 import tkinter as tk
 from tkinter import messagebox, filedialog
-from tkinter import ttk
+from datetime import datetime
 import sys
 import os
+from database.db_connection import get_connection
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 class StudentDashboard:
-    def __init__(self, root):
+    def __init__(self, root, user_id):
         self.root = root
+        self.user_id = user_id
         self.root.title("Student Dashboard - Intra-School Event Management")
         self.root.configure(bg="#f0f0f0")
         self.root.geometry("700x500")
+
+        # PostgreSQL connection
+        try:
+            self.conn = get_connection()
+            self.cursor = self.conn.cursor()
+        except Exception as e:
+            messagebox.showerror("Database Connection Error", f"Error connecting to the database: {e}")
+            self.conn = None
+            self.cursor = None
 
         self.create_widgets()
 
@@ -30,7 +41,7 @@ class StudentDashboard:
 
         btn_style = {"font": ("Arial", 12), "width": 25, "bd": 2, "relief": "raised"}
 
-        # 1. View Events (replacing the old "Dashboard" button)
+        # 1. View Events
         tk.Button(
             btn_frame,
             text="View Events",
@@ -60,84 +71,107 @@ class StudentDashboard:
             command=self.logout
         ).grid(row=2, column=0, pady=10)
 
-    # --------------------------------------------------
-    # VIEW EVENTS (Combined Calendar + Event List)
-    # --------------------------------------------------
+    def fetch_student_events(self):
+        """Fetch events associated with the logged-in student."""
+        try:
+            query = """
+                SELECT e.EventName, e.EventDate 
+                FROM Events e
+                JOIN Event_Participation ep ON e.EventID = ep.EventID
+                WHERE TRIM(LOWER(ep.UserID)) = LOWER(TRIM(%s))
+            """
+            self.cursor.execute(query, (self.user_id,))
+            results = self.cursor.fetchall()
+            return results
+        except Exception as e:
+            messagebox.showerror("Error", f"Error fetching events: {e}")
+            return []
+
     def view_events(self):
         """
         Opens a window with:
-        - A calendar that color-codes events (completed/upcoming/current).
-        - A list of events in a Listbox or Treeview.
+        - A calendar that color-codes events (completed/upcoming/current) for the logged-in student.
+        - A text box that displays the event names on the selected day (only those events associated with the student).
         """
         view_win = tk.Toplevel(self.root)
         view_win.title("View Events")
         view_win.geometry("700x500")
         view_win.configure(bg="white")
 
-        # Title
+        # Title label
         tk.Label(view_win, text="View Events", font=("Arial", 16, "bold"), bg="white").pack(pady=10)
 
-        # 1) Calendar Section
+        # Calendar Section
         calendar_frame = tk.Frame(view_win, bg="white")
         calendar_frame.pack(pady=10, fill="x")
 
-        try:
-            from tkcalendar import Calendar
-            from datetime import datetime
-        except ImportError:
-            messagebox.showerror("Error", "tkcalendar not installed. Please install it to view the calendar.")
-            return
-
-        calendar = Calendar(calendar_frame, selectmode='none', date_pattern="yyyy-mm-dd", font=("Arial", 12))
+        from tkcalendar import Calendar
+        calendar = Calendar(calendar_frame, selectmode='day', date_pattern="yyyy-mm-dd", font=("Arial", 12))
         calendar.pack(padx=20, pady=10, expand=True, fill="x")
 
-        # Dummy event data
-        event_dates = [
-            {"EventName": "Science Fair",   "EventDate": "2025-03-20"},
-            {"EventName": "Sports Day",     "EventDate": "2025-04-15"},
-            {"EventName": "Today’s Meeting","EventDate": datetime.today().strftime("%Y-%m-%d")},
-            {"EventName": "Music Concert",  "EventDate": "2025-03-25"}
-        ]
-
         today_date = datetime.today().date()
-        for ev in event_dates:
+
+        # Fetch events for this student
+        events = self.fetch_student_events()
+
+        for event_name, event_date in events:
             try:
-                ev_date = datetime.strptime(ev["EventDate"], "%Y-%m-%d").date()
+                if isinstance(event_date, str):
+                    ev_date = datetime.strptime(event_date, "%Y-%m-%d").date()
+                else:
+                    ev_date = event_date
+
+                print(f"Creating calendar event: {event_name} on {ev_date}")  # Debug statement
+
                 if ev_date < today_date:
                     tag = "completed"  # Red
                 elif ev_date > today_date:
                     tag = "upcoming"   # Green
                 else:
                     tag = "current"    # Blue
-                calendar.calevent_create(ev_date, ev["EventName"], tag)
+
+                calendar.calevent_create(ev_date, event_name, tag)
             except Exception as ex:
                 print(f"Error creating calendar event: {ex}")
 
-        # Configure color tags
         calendar.tag_config("completed", background="red", foreground="white")
         calendar.tag_config("upcoming", background="green", foreground="white")
         calendar.tag_config("current", background="blue", foreground="white")
 
-        # 2) List of Events
-        tk.Label(view_win, text="Event List:", font=("Arial", 14, "bold"), bg="white").pack(pady=(10, 0))
+        tk.Label(view_win, text="Event dates are highlighted on the calendar.", font=("Arial", 12), bg="white").pack(pady=10)
 
-        list_frame = tk.Frame(view_win, bg="white")
-        list_frame.pack(pady=5, fill="both", expand=True)
+        event_details = tk.Text(view_win, height=5, width=60, font=("Arial", 12), state="disabled")
+        event_details.pack(pady=10)
 
-        event_listbox = tk.Listbox(list_frame, font=("Arial", 12), width=50, height=6)
-        event_listbox.pack(side="left", fill="both", expand=True, padx=10, pady=5)
+        def on_date_select(event):
+            selected_date = calendar.get_date()  # in yyyy-mm-dd format
+            try:
+                query = """
+                    SELECT e.EventName 
+                    FROM Events e
+                    JOIN Event_Participation ep ON e.EventID = ep.EventID
+                    WHERE TRIM(LOWER(ep.UserID)) = LOWER(TRIM(%s)) AND e.EventDate = %s
+                """
+                self.cursor.execute(query, (self.user_id, selected_date))
+                results = self.cursor.fetchall()
 
-        scrollbar = tk.Scrollbar(list_frame, orient="vertical", command=event_listbox.yview)
-        scrollbar.pack(side="right", fill="y")
-        event_listbox.config(yscrollcommand=scrollbar.set)
+                event_details.config(state="normal")
+                event_details.delete("1.0", tk.END)
 
-        # Populate the listbox with the same dummy events
-        for ev in event_dates:
-            event_listbox.insert(tk.END, f"{ev['EventName']} on {ev['EventDate']}")
+                if results:
+                    for row in results:
+                        event_details.insert(tk.END, f"Event: {row[0]}\n")
+                else:
+                    event_details.insert(tk.END, "No events on the selected day.")
+                
+                event_details.config(state="disabled")
+            except Exception as e:
+                messagebox.showerror("Error", f"Error fetching events for the selected date: {e}")
 
-        tk.Label(view_win, text="(Red = Completed, Green = Upcoming, Blue = Current)", 
-                 font=("Arial", 10), bg="white").pack(pady=(0, 10))
+        calendar.bind("<<CalendarSelected>>", on_date_select)
 
+        
+        
     # --------------------------------------------------
     # UPLOAD FILES
     # --------------------------------------------------
