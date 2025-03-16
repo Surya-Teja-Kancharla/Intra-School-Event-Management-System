@@ -1,6 +1,4 @@
 import os
-import shutil
-from datetime import datetime
 from database.db_connection import get_connection
 from dotenv import load_dotenv
 
