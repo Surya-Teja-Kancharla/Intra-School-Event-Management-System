@@ -235,9 +235,38 @@ def generate_unique_file_id():
         cursor.close()
         conn.close()
 
+# -----------------------------------------------------------
+# 9. Fetch All Events
+# -----------------------------------------------------------
+def generate_unique_feedback():
+    """
+    Generates the next FeedbackID in the format 'FEEDBACK0x',
+    where x is the next number after the current maximum.
+    For example, if the maximum FeedbackID is "FEEDBACK01", the next will be "FEEDBACK02".
+    """
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        query = "SELECT MAX(FeedbackID) FROM Feedback"
+        cursor.execute(query)
+        max_id = cursor.fetchone()[0]
+        if max_id:
+            # Remove the 'FEEDBACK' prefix and convert the remaining part to an integer
+            numeric_part = int(max_id.replace("FEEDBACK", ""))
+            next_id = f"FEEDBACK{numeric_part + 1:02d}"
+        else:
+            next_id = "FEEDBACK01"
+        return next_id
+    except Exception as e:
+        print("Error generating unique FeedbackID:", e)
+        raise e
+    finally:
+        cursor.close()
+        conn.close()
+
 
 # -----------------------------------------------------------
-# 8. Fetch All Events
+# 10. Fetch All Events
 # -----------------------------------------------------------
 def fetch_all_events():
     """
