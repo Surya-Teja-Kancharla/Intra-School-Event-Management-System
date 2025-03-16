@@ -39,6 +39,7 @@ CREATE TABLE Event_Files (
     FileName VARCHAR(45) NOT NULL,
     FileContent BYTEA,
     UploadDate DATE DEFAULT CURRENT_DATE
+    FileApprovalStatus VARCHAR(10) DEFAULT 'Pending'
 );
 
 CREATE TABLE Feedback (
