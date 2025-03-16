@@ -107,6 +107,41 @@ python main.py
 
 ---
 
+<h2><strong>Convert Python Script to .exe File</strong></h2>
+
+<h3><strong>Step 1: Install PyInstaller</strong></h3>
+<pre>
+pip install pyinstaller
+</pre>
+
+<h3><strong>Step 2: Generate the Executable File</strong></h3>
+<p>Run the following command in the terminal:</p>
+<pre>
+pyinstaller --onefile --windowed main.py
+</pre>
+<p>This will create an executable file in the <code>dist</code> directory.</p>
+
+<h3><strong>Step 3: Copy .exe File to Application Directory</strong></h3>
+<p>Navigate to the <code>dist</code> directory:</p>
+<pre>
+cd dist
+</pre>
+<p>Copy the generated <code>main.exe</code> file to the project directory or a suitable location for deployment:</p>
+<pre>
+copy main.exe "C:\Path\To\Intra-School Event Management\"
+</pre>
+
+<h3><strong>Step 4: Place .exe File on Desktop</strong></h3>
+<p>Move or copy the <code>main.exe</code> file to your desktop:</p>
+<pre>
+copy main.exe "C:\Users\<username>\Desktop"
+</pre>
+
+<h3><strong>Step 5: Run the Application</strong></h3>
+<p>Double-click the <code>main.exe</code> file on your desktop to launch the Intra-School Event Management application.</p>
+
+---
+
 <h2><strong>Features</strong></h2>
 <ul>
   <li><strong>Role-Based Access:</strong> Separate dashboards for Admins, Teachers, and Students.</li>
