@@ -206,8 +206,38 @@ def generate_next_event_id():
         cursor.close()
         conn.close()
 
+
 # -----------------------------------------------------------
-# 7. Fetch All Events
+# 8. Fetch All Events
+# -----------------------------------------------------------
+def generate_unique_file_id():
+    """
+    Generates the next FileID in the format 'FILEID-00x',
+    where x represents the next number after the current maximum.
+    """
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        query = "SELECT MAX(FileID) FROM Event_Files"
+        cursor.execute(query)
+        max_id = cursor.fetchone()[0]
+        if max_id:
+            # Remove the 'FILEID-' prefix and convert the remaining part to an integer
+            numeric_part = int(max_id.replace("FILEID-", ""))
+            next_id = f"FILEID-{numeric_part + 1:03d}"
+        else:
+            next_id = "FILEID-001"
+        return next_id
+    except Exception as e:
+        print("Error generating unique FileID:", e)
+        raise e
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# -----------------------------------------------------------
+# 8. Fetch All Events
 # -----------------------------------------------------------
 def fetch_all_events():
     """
